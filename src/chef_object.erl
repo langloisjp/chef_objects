@@ -101,6 +101,21 @@ new_record(chef_node, OrgId, AuthzId, NodeData) ->
                name = Name,
                environment = Environment,
                serialized_object = Data};
+new_record(chef_user, OrgId, AuthzId, UserData) ->
+    Name = ej:get({<<"name">>}, UserData),
+    Id = make_org_prefix_id(OrgId, Name),
+    %% Need to determine what fields need to be filled in here vs. not
+    %% username and Id are needed
+    %% Need to determine how to handle fields that might be null /
+    %% allowed to be null
+    #chef_user{id = Id,
+               authz_id = maybe_stub_authz_id(AuthzId, Id),
+               username = Name,
+               email = Email,
+               pubkey_version = PubkeyVersion,
+               public_key = PublicKey,
+               serialized_object = Data %% Need to termine how to populate this
+    };
 new_record(chef_role, OrgId, AuthzId, RoleData) ->
     Name = ej:get({<<"name">>}, RoleData),
     Id = make_org_prefix_id(OrgId, Name),
@@ -158,8 +173,8 @@ compress_maybe(Data, cookbook_long_desc) ->
 compress_maybe(Data, Type) ->
     chef_db_compression:compress(Type, ejson:encode(Data)).
 
--spec ejson_for_indexing(ChefRecord :: chef_indexable_object(),
-                         ChefEJSON :: ejson_term()) -> ejson_term().
+-spec ejson_for_indexing(chef_indexable_object() | #chef_data_bag_item{},
+                         ejson_term()) -> ejson_term().
 %% @doc Return EJSON terms appropriate for sending to opscode-expander for
 %% indexing. Although the EJSON data is embedded in the ChefRecord, it is stored in a
 %% possibly compressed form. To avoid double work, we pass both the Chef object record
@@ -304,6 +319,8 @@ id(#chef_node{id = Id}) ->
     Id;
 id(#chef_role{id = Id}) ->
     Id;
+id(#chef_user{id = Id}) ->
+    Id;
 id(#chef_environment{id = Id}) ->
     Id;
 id(#chef_client{id = Id}) ->
@@ -341,6 +358,9 @@ set_created(#chef_node{} = Object, ActorId) ->
 set_created(#chef_role{} = Object, ActorId) ->
     Now = sql_date(now),
     Object#chef_role{created_at = Now, updated_at = Now, last_updated_by = ActorId};
+set_created(#chef_user{} = Object, ActorId) ->
+    Now = sql_date(now),
+    Object#chef_user{created_at = Now, updated_at = Now, last_updated_by = ActorId};
 set_created(#chef_sandbox{}=Object, _ActorId) ->
     Now = sql_date(now),
     Object#chef_sandbox{created_at = Now};
@@ -371,16 +391,22 @@ set_updated(#chef_node{} = Object, ActorId) ->
 set_updated(#chef_role{} = Object, ActorId) ->
     Now = sql_date(now),
     Object#chef_role{updated_at = Now, last_updated_by = ActorId};
+set_updated(#chef_user{} = Object, ActorId) ->
+    Now = sql_date(now),
+    Object#chef_user{updated_at = Now, last_updated_by = ActorId};
 set_updated(#chef_cookbook_version{} = Object, ActorId) ->
     Now = sql_date(now),
     Object#chef_cookbook_version{updated_at = Now, last_updated_by = ActorId}.
 
 -spec name(chef_object()) -> binary() | {binary(), binary()}.
 %% @doc Return the `name' field from a `chef_object()' record type. For `data_bag_items' the
-%% return value is a tuple of `{BagName, ItemName}'.
+%% return value is a tuple of `{BagName, ItemName}',
+%% for a chef_user, the username is returned.
 name(#chef_node{name = Name}) ->
     Name;
 name(#chef_role{name = Name}) ->
+    Name;
+name(#chef_user{username = Name}) ->
     Name;
 name(#chef_environment{name = Name}) ->
     Name;
@@ -408,6 +434,8 @@ type_name(#chef_node{}) ->
     node;
 type_name(#chef_role{}) ->
     role;
+type_name(#chef_user{}) ->
+    user;
 type_name(#chef_cookbook_version{}) ->
     cookbook_version.
 
