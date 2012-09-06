@@ -102,19 +102,24 @@ new_record(chef_node, OrgId, AuthzId, NodeData) ->
                environment = Environment,
                serialized_object = Data};
 new_record(chef_user, OrgId, AuthzId, UserData) ->
+    %% This only works for Open Source Users currently
     Name = ej:get({<<"name">>}, UserData),
     Id = make_org_prefix_id(OrgId, Name),
-    %% Need to determine what fields need to be filled in here vs. not
-    %% username and Id are needed
-    %% Need to determine how to handle fields that might be null /
-    %% allowed to be null
+    OpenId= value_or_null({<<"openid">>}, UserData),
+    Admin = ej:get({<<"admin">>}, UserData) =:= true,
+    Password = ej:get({<<"password">>}, UserData),
+    Salt = ej:get({<<"salt">>}, UserData),
+    AuthInfo = {Salt, Password},
     #chef_user{id = Id,
                authz_id = maybe_stub_authz_id(AuthzId, Id),
                username = Name,
-               email = Email,
-               pubkey_version = PubkeyVersion,
-               public_key = PublicKey,
-               serialized_object = Data %% Need to termine how to populate this
+               email = null, %% Not used in open source user
+               pubkey_version = null, %% Not used in open source user
+               public_key = null, %% Not used in open source user
+               serialized_object = AuthInfo,
+               external_authentication_uid = OpenId,
+               recovery_authentication_enabled = false, %% Not used in open source user
+               admin = Admin
     };
 new_record(chef_role, OrgId, AuthzId, RoleData) ->
     Name = ej:get({<<"name">>}, RoleData),
@@ -555,3 +560,12 @@ cert_or_key(ClientData) ->
         _ ->
             {Cert, ?CERT_VERSION}
     end.
+
+value_or_null(Key, Data) ->
+  Value = ej:get(Key, Data),
+  case Value of
+    undefined ->
+      null;
+    _ ->
+      Value
+  end.
