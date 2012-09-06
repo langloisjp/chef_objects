@@ -35,14 +35,14 @@
         [
           {<<"json_class">>, <<"Chef::WebUIUser">>},
           {<<"chef_type">>, <<"webui_user">>},
-          {<<"admin">>, <<"false">>},
+          {<<"admin">>, <<"false">>}
         ]).
 
 -define(VALIDATION_CONSTRAINTS,
         [
           {<<"json_class">>,  {match, "Chef::WebUIUser"}},
           {<<"chef_type">>, {match, "webui_user"}},
-          {<<"admin">>, {match, "^true$|^false$"}},
+          {<<"admin">>, {match, "^true$|^false$"}}
         ]).
 
 -type user_action() :: create.
